@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB Tables for Course Planner App
+
+Resources:
+  CoursesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Courses
+      AttributeDefinitions:
+        - AttributeName: courseCode
+          AttributeType: S
+      KeySchema:
+        - AttributeName: courseCode
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  RequirementsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: GraduationRequirements
+      AttributeDefinitions:
+        - AttributeName: requirementId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: requirementId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+Outputs:
+  CoursesTableName:
+    Value: !Ref CoursesTable
+    Export:
+      Name: CoursesTableName
+
+  RequirementsTableName:
+    Value: !Ref RequirementsTable
+    Export:
+      Name: RequirementsTableName

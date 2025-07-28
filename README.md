@@ -190,3 +190,61 @@ TailAdmin React.js Free Version is released under the MIT License.
 
 If you find this project helpful, please consider giving it a star on GitHub. Your support helps us continue developing
 and maintaining this template.
+
+## 📝 Uploading Course Data to DynamoDB (Manual Setup)
+
+Before using the app, you may want to populate the DynamoDB table with course data. Here's how to do it manually:
+
+### Step 1: Ensure Your Backend Is Running
+
+Make sure you have the backend project running:
+
+```bash
+dotnet run --project apps/backend/GraduationPlannerApi
+```
+
+> This assumes you're using a monorepo setup with the backend under `apps/backend`.
+
+---
+
+### Step 2: Prepare Your Data
+
+Ensure the `semester_courses.json` file is placed in the `GraduationPlannerApi` root folder. This file should contain a list of course objects structured like this:
+
+```json
+[
+  {
+    "CourseCode": "COMP1234",
+    "Name": "Example Course",
+    "Availability": "S1 Only",
+    "Prerequisites": ["COMP1000"],
+    "IsLevel8": false,
+    "Credit": 6
+  }
+]
+```
+
+---
+
+### Step 3: Trigger the Upload Endpoint
+
+Send a POST request to the upload endpoint:
+
+```
+POST http://localhost:5157/api/upload/courses
+```
+
+You can do this via:
+- Postman
+- `curl`:
+  ```bash
+  curl -X POST http://localhost:5157/api/upload/courses
+  ```
+
+If successful, you will get:
+
+```
+Courses uploaded successfully.
+```
+
+> This endpoint calls `BulkUploadCoursesAsync()` which reads the JSON file and saves each course entry into DynamoDB.
