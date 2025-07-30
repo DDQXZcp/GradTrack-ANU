@@ -110,40 +110,33 @@ jobs:
           echo "CloudFront distribution: $DIST"
           echo "Site URL: $URL"
       
-      - name: Setup Node
+      - name: Setup Node (Yarn)
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: apps/frontend/package-lock.json
+          cache: yarn
+          cache-dependency-path: apps/frontend/yarn.lock
 
       - name: Install deps
         working-directory: apps/frontend
-        run: npm ci
+        run: |
+          # Yarn 1.x
+          if yarn --version | grep -q '^1\.'; then
+            yarn install --frozen-lockfile
+          else
+            # Yarn 3+ (Berry)
+            corepack enable
+            yarn install --immutable
+          fi
 
       - name: Build
         working-directory: apps/frontend
         env:
-          # CloudFront routes /api/* to API Gateway, so the app can call same-domain /api
-          VITE_API_BASE: /api
-        run: npm run build
+          VITE_API_BASE: /api    # SPA calls same-domain /api/*; CloudFront forwards to API GW
+        run: yarn build
 
       - name: Upload to S3
-        run: |
-          aws s3 sync apps/frontend/dist/ "s3://${{ steps.outputs.outputs.bucket }}/" --delete
-
-      # Optional: wait for first-time CloudFront deployment (useful on first run)
-      - name: Wait for CloudFront Deployed (optional)
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in {1..40}; do
-            STATUS=$(aws cloudfront get-distribution --id "${{ steps.outputs.outputs.dist }}" \
-              --query 'Distribution.Status' --output text)
-            echo "Distribution status: $STATUS"
-            [[ "$STATUS" == "Deployed" ]] && break
-            sleep 30
-          done
+        run: aws s3 sync apps/frontend/dist/ "s3://${{ steps.outputs.outputs.bucket }}/" --delete
 
       - name: Invalidate CloudFront cache
         run: |
