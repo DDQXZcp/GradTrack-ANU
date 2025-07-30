@@ -1,9 +1,27 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: DynamoDB Tables for Course Planner App
+Description: Herman-GradTrack – DynamoDB + Lambda (.NET 8 container) + HTTP API (ap-southeast-2)
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: ECR image URI with tag or digest (prefer digest), e.g. 123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/repo@sha256:...
+  AllowedOrigin:
+    Type: String
+    Default: https://gradtrack.herman-tang.com
+    Description: CORS allowed origin for the API
+  MemorySize:
+    Type: Number
+    Default: 1024
+  Timeout:
+    Type: Number
+    Default: 30
 
 Resources:
+  # ---------------- DynamoDB (existing) ----------------
   CoursesTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: Courses
       AttributeDefinitions:
@@ -18,6 +36,8 @@ Resources:
 
   RequirementsTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: GraduationRequirements
       AttributeDefinitions:
@@ -30,13 +50,114 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+  # ---------------- IAM for Lambda ----------------
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LogsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+        - PolicyName: DynamoDbLeastPrivilege
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:BatchGetItem
+                Resource:
+                  - !GetAtt CoursesTable.Arn
+                  - !GetAtt RequirementsTable.Arn
+
+  # ---------------- Lambda (container image) ----------------
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      PackageType: Image
+      Code: { ImageUri: !Ref ImageUri }
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      Environment:
+        Variables:
+          COURSES_TABLE: !Ref CoursesTable
+          REQUIREMENTS_TABLE: !Ref RequirementsTable
+
+  # ---------------- HTTP API Gateway (v2) ----------------
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: GradTrackHttpApi
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: [ !Ref AllowedOrigin ]
+        AllowMethods: [ GET, POST, PUT, PATCH, DELETE, OPTIONS ]
+        AllowHeaders: [ "*" ]
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  RouteRoot:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "ANY /"
+      Target: !Sub "integrations/${Integration}"
+
+  RouteAnyProxy:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "ANY /{proxy+}"
+      Target: !Sub "integrations/${Integration}"
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: prod
+      AutoDeploy: true
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*"
+
 Outputs:
+  ApiBaseUrl:
+    Description: HTTPS base URL for your API
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
   CoursesTableName:
     Value: !Ref CoursesTable
-    Export:
-      Name: CoursesTableName
 
   RequirementsTableName:
     Value: !Ref RequirementsTable
-    Export:
-      Name: RequirementsTableName

@@ -4,6 +4,9 @@ using GraduationPlannerApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// This line will enable AWS Lambda hosting
+builder.Services.AddAWSLambdaHosting(LambdaEventSource.RestApi);
+
 builder.Services.AddControllers();
 builder.Services.AddAWSService<IAmazonDynamoDB>();
 builder.Services.AddSingleton<IDynamoDBContext, DynamoDBContext>();
