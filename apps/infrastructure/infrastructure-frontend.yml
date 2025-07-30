@@ -1,0 +1,221 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GradTrack Frontend – S3 (private) + CloudFront (+ optional Route53) with /api/* forwarded to an existing HTTP API
+
+Parameters:
+  # ===== Custom domain for the SPA =====
+  SiteDomain:
+    Type: String
+    Default: gradtrack.herman-tang.com
+    Description: Public hostname for the SPA (e.g., gradtrack.herman-tang.com)
+
+  # CloudFront requires a certificate in us-east-1
+  ACMCertificateArn:
+    Type: String
+    Description: ACM certificate ARN in us-east-1 that covers SiteDomain (or *.root)
+    Default: ""
+
+  # If provided, create an A-record in this hosted zone for SiteDomain
+  HostedZoneId:
+    Type: String
+    Description: (Optional) Route53 Hosted Zone ID that contains SiteDomain
+    Default: ""
+
+  # ===== Where to send /api/* =====
+  HttpApiId:
+    Type: String
+    Description: HTTP API ID (the short id like a1b2c3d4e5) that the SPA should call under /api/*
+  ApiStageName:
+    Type: String
+    Default: prod
+    Description: Stage name of your HTTP API (usually 'prod')
+
+  # ===== S3 bucket name (optional) =====
+  SiteBucketName:
+    Type: String
+    Default: ""
+    Description: Optional exact S3 bucket name. Leave empty to let AWS generate a name.
+
+Conditions:
+  UseCustomDomain: !Not [ !Equals [ !Ref ACMCertificateArn, "" ] ]
+  CreateDnsRecord: !And
+    - !Not [ !Equals [ !Ref HostedZoneId, "" ] ]
+    - !Condition UseCustomDomain
+  UseProvidedBucketName: !Not [ !Equals [ !Ref SiteBucketName, "" ] ]
+
+Resources:
+  # ---------------- Logs bucket (stores S3/CloudFront access logs) ----------------
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "gradtrack-logs-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerPreferred }]
+      VersioningConfiguration: { Status: Enabled }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+
+  LogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Allow S3 server access logs to write into this bucket
+          - Sid: AllowS3ServerLogs
+            Effect: Allow
+            Principal: { Service: logging.s3.amazonaws.com }
+            Action: s3:PutObject
+            Resource: !Sub '${LogsBucket.Arn}/*'
+            Condition:
+              StringEquals: { AWS:SourceAccount: !Ref AWS::AccountId }
+
+  # ---------------- Private S3 bucket for the SPA (CloudFront is the only reader) ----------------
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If [ UseProvidedBucketName, !Ref SiteBucketName, !Ref AWS::NoValue ]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration: { Status: Enabled }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LogsBucket
+        LogFilePrefix: s3/
+
+  # ---------------- CloudFront Origin Access Control (OAC) to keep the bucket private ----------------
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'oac-${AWS::StackName}'
+        Description: Access control for SPA S3 origin
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ---------------- CloudFront distribution (S3 as default, /api/* to API Gateway) ----------------
+  SiteDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: GradTrack SPA + API
+        DefaultRootObject: index.html
+
+        # ---- Origins ----
+        Origins:
+          # S3 origin for the SPA
+          - Id: S3Origin
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            S3OriginConfig: {}               # required when using OAC
+            OriginAccessControlId: !Ref CloudFrontOAC
+
+          # API Gateway origin (regional)
+          - Id: ApiOrigin
+            DomainName: !Sub '${HttpApiId}.execute-api.${AWS::Region}.amazonaws.com'
+            OriginPath: !Sub '/${ApiStageName}'
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+
+        # ---- Default behavior (serve SPA from S3) ----
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [ GET, HEAD, OPTIONS ]
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6          # Managed: CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf   # Managed: CORS-S3Origin
+          ResponseHeadersPolicyId: eaab4381-ed33-4a86-88ca-d9558dc6cd63 # Managed: CORS-with-preflight-and-SecurityHeadersPolicy
+
+        # ---- Send /api/* to API Gateway with caching disabled ----
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [ GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE ]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad          # Managed: CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed: AllViewerExceptHostHeader
+            ResponseHeadersPolicyId: eaab4381-ed33-4a86-88ca-d9558dc6cd63
+
+        # ---- SPA client routing fallback ----
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+        # ---- Access logs ----
+        Logging:
+          Bucket: !GetAtt LogsBucket.RegionalDomainName
+          Prefix: 'cloudfront/'
+          IncludeCookies: false
+
+        # ---- TLS & hostnames ----
+        ViewerCertificate: !If
+          - UseCustomDomain
+          - { AcmCertificateArn: !Ref ACMCertificateArn, SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021 }
+          - { CloudFrontDefaultCertificate: true }
+        Aliases: !If
+          - UseCustomDomain
+          - [ !Ref SiteDomain ]
+          - []
+
+  # ---------------- Allow CloudFront (this distribution) to read from the private S3 bucket ----------------
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: SiteDistribution
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub '${SiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}'
+
+  # ---------------- (Optional) Route53 A-record gradtrack.herman-tang.com -> CloudFront ----------------
+  SiteAliasRecord:
+    Condition: CreateDnsRecord
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref SiteDomain
+      Type: A
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2                        # CloudFront hosted zone ID (global constant)
+        DNSName: !GetAtt SiteDistribution.DomainName
+
+Outputs:
+  SiteBucketName:
+    Description: S3 bucket that hosts the SPA artifacts
+    Value: !Ref SiteBucket
+  DistributionDomainName:
+    Description: CloudFront domain name (use this if not using a custom domain)
+    Value: !GetAtt SiteDistribution.DomainName
+  DistributionId:
+    Description: CloudFront distribution ID (for cache invalidations)
+    Value: !Ref SiteDistribution
+  SiteURL:
+    Description: Public URL for the site
+    Value: !If
+      - UseCustomDomain
+      - !Sub 'https://${SiteDomain}'
+      - !Sub 'https://${SiteDistribution.DomainName}'

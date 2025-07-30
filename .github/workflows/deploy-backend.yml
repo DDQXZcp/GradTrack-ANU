@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'apps/backend/GraduationPlannerApi/**'
-      - 'apps/infrastructure/infrastructure.yaml'
+      - 'apps/infrastructure/infrastructure-backend.yaml'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: {}
 
@@ -16,8 +16,8 @@ permissions:
 env:
   AWS_REGION: ap-southeast-2
   ECR_REPO: gradtrack-backend-lambda               # ECR repo name (auto-created if missing)
-  CFN_STACK: Herman-GradTrack                      # <— your existing stack name
-  CFN_TEMPLATE: apps/infrastructure/infrastructure.yaml               # <— path to the merged template in repo
+  CFN_STACK: Herman-GradTrack-Backend              # <— your existing stack name
+  CFN_TEMPLATE: apps/infrastructure/infrastructure-backend.yaml               # <— path to the merged template in repo
   ALLOWED_ORIGIN: https://gradtrack.herman-tang.com
 
 jobs:

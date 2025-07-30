@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Herman-GradTrack – DynamoDB + Lambda (.NET 8 container) + HTTP API (ap-southeast-2)
+Description: GradTrack Backend – DynamoDB + Lambda (.NET 8 container) + HTTP API + Frontend (S3+CloudFront) in ap-southeast-2
 
 Parameters:
   ImageUri:
