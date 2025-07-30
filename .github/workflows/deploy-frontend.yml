@@ -132,7 +132,7 @@ jobs:
       - name: Build
         working-directory: apps/frontend
         env:
-          VITE_API_BASE: ''    # empty means result is "/api/..."
+          VITE_API_URL: ''    # empty means result is "/api/..."
         run: yarn build
 
       - name: Upload to S3
