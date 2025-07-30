@@ -132,7 +132,7 @@ jobs:
       - name: Build
         working-directory: apps/frontend
         env:
-          VITE_API_BASE: /api    # SPA calls same-domain /api/*; CloudFront forwards to API GW
+          VITE_API_BASE: ''    # empty means result is "/api/..."
         run: yarn build
 
       - name: Upload to S3
