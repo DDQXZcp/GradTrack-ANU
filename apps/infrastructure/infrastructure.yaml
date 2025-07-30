@@ -85,6 +85,7 @@ Resources:
                   - dynamodb:Scan
                   - dynamodb:BatchWriteItem
                   - dynamodb:BatchGetItem
+                  - dynamodb:DescribeTable
                 Resource:
                   - !GetAtt CoursesTable.Arn
                   - !GetAtt RequirementsTable.Arn
