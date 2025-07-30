@@ -152,6 +152,6 @@ jobs:
             --paths "/*"
 
       - name: Done
-        run: echo "✅ Deployed. Visit: ${{ steps.outputs.outputs.url }}"
+        run: echo "✅ Deployed. Visit ${{ steps.outputs.outputs.url }}"
 
 
