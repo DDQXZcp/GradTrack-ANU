@@ -178,7 +178,7 @@ const SemesterPlanner: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Semester Planner" description="Plan your courses by semester" />
+      <PageMeta title="GradTrack Planner" description="Plan your courses by semester" />
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="p-6">
           <SemesterHeaderToolbar
@@ -226,7 +226,7 @@ const SemesterPlanner: React.FC = () => {
           <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
             <div>
               <h5 className="mb-2 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">
-                {selectedGridIdx !== null && gridEvents[selectedGridIdx] ? "Edit Event" : "Add Event"}
+                {selectedGridIdx !== null && gridEvents[selectedGridIdx] ? "Edit Course" : "Add Course"}
               </h5>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Plan your next big moment: schedule or edit an event to stay on track
@@ -292,7 +292,7 @@ const SemesterPlanner: React.FC = () => {
                 type="button"
                 className="btn btn-success flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
               >
-                {selectedEvent ? "Update Changes" : "Add Event"}
+                {selectedEvent ? "Update Changes" : "Add Course"}
               </button>
             </div>
           </div>

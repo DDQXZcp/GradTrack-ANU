@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
   // },
   {
     icon: <CalenderIcon />,
-    name: "Semester Planner",
+    name: "GradTrack Planner",
     path: "/calendar",
   },
   {

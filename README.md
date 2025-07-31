@@ -6,7 +6,7 @@ GradTrack is designed for ANU students to plan their course arrangements against
 
 Since some courses are only offered in Semester 1 or Semester 2, and some may not be available in a given year, failing to plan ahead could delay graduation. Unexpected issues, such as failing a course, may also require students to re-plan their degree.
 
-![Semester Planner Review](./apps/frontend/public/images/Planner.png)
+![Architecture](./apps/frontend/public/images/GradTrack-ANU-Architecture.png)
 
 ## Overview
 
@@ -23,6 +23,8 @@ Backend
 - .Net (C#)
 - DynamoDB
 - Docker + Lambda
+
+![Semester Planner Frontend](./apps/frontend/public/images/Planner.png)
 
 ## Local Installation
 
