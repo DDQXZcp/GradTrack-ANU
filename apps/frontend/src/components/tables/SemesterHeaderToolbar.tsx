@@ -1,3 +1,6 @@
+import Button from "../../components/ui/button/Button";
+import { BoxIcon } from "../../icons";
+
 interface Props {
   year: number;
   onPrevYear: () => void;
@@ -19,24 +22,28 @@ const SemesterHeaderToolbar: React.FC<Props> = ({
     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 rounded-t-2xl">
       {/* Left Section */}
       <div className="flex items-center gap-2">
-        <button
+        <Button 
+          size="sm" 
+          variant="outline" 
           onClick={onPrevYear}
-          className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         >
-          ←
-        </button>
-        <button
+          Prev Year
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
           onClick={onNextYear}
-          className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         >
-          →
-        </button>
-        <button
+          Next Year
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          startIcon={<BoxIcon className="size-5" />}
           onClick={onLoadExample}
-          className="rounded-lg border border-blue-300 bg-blue-100 px-2 py-1 text-sm text-blue-800 hover:bg-blue-200 dark:border-blue-600 dark:bg-blue-900 dark:text-white"
         >
           Load Example 1
-        </button>
+        </Button>
       </div>
 
       {/* Center Section */}
@@ -47,17 +54,14 @@ const SemesterHeaderToolbar: React.FC<Props> = ({
       {/* Right Section */}
       <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
         {[1, 2].map((s) => (
-          <button
+          <Button
+            size="sm"
+            variant={semester === s ? "primary" : "outline"}
             key={s}
             onClick={() => onChangeSemester(s)}
-            className={`px-3 py-1 text-sm font-medium ${
-              semester === s
-                ? "bg-white dark:bg-gray-900 text-brand-600"
-                : "text-gray-500 hover:bg-white/60 dark:hover:bg-gray-800"
-            }`}
           >
             Semester {s}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

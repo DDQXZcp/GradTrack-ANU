@@ -207,6 +207,18 @@ const SemesterPlanner: React.FC = () => {
                   setSelectedGridIdx(idx);
                   openModal();
                 }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (gridEvents[idx]) {
+                    // Remove the course from this cell
+                    const updatedEvents = { ...gridEvents };
+                    delete updatedEvents[idx];
+                    setGridEvents(updatedEvents);
+                    // Optionally update requirements if needed
+                    updateRequirements(Object.values(updatedEvents).map((e) => e.extendedProps?.courseCode || ""));
+                  }
+                }}
+                title="Right click to delete course"
               >
                 {gridEvents[idx]?.title && (
                   <div className="text-sm bg-green-100 text-green-700 p-1 rounded">
@@ -223,13 +235,13 @@ const SemesterPlanner: React.FC = () => {
         </div>
 
         <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] p-6 lg:p-10">
-          <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col px-2 custom-scrollbar">
             <div>
               <h5 className="mb-2 font-semibold text-gray-800 text-theme-xl dark:text-white/90 lg:text-2xl">
                 {selectedGridIdx !== null && gridEvents[selectedGridIdx] ? "Edit Course" : "Add Course"}
               </h5>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Plan your next big moment: schedule or edit an event to stay on track
+                You can Select a course from the dropdown and click 'Add'. You can also search by course code or name.
               </p>
             </div>
 
@@ -245,7 +257,7 @@ const SemesterPlanner: React.FC = () => {
               />
             </div>
 
-            <div className="mt-6">
+            {/* <div className="mt-6">
               <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
                 Event Color
               </label>
@@ -277,7 +289,7 @@ const SemesterPlanner: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             <div className="flex items-center gap-3 mt-6 sm:justify-end">
               <button
